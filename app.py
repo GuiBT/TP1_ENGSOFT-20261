@@ -14,7 +14,7 @@ def _conflito_de_horario(inicio1, fim1, inicio2, fim2):
 
 @app.route('/salas', methods=['GET'])
 def listar_salas():
-    return (jsonify(salas), 200)
+    return (jsonify([{'id': s['id'], 'nome': s['nome'], 'capacidade': s['capacidade']} for s in salas]), 200)
 
 @app.route('/salas/<int:id>', methods=['GET'])
 def detalhar_sala(id):
