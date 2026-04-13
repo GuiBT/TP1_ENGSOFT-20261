@@ -19,13 +19,13 @@ def _conflito_de_horario(inicio1, fim1, inicio2, fim2):
 def criar_usuario():
     dados = request.get_json()
     conn = get_db_connection()
-    try:
-        c = conn.cursor()
-        c.execute('INSERT INTO usuarios (nome, papel) VALUES (?, ?)', (dados['nome'], dados['papel']))
-        conn.commit()
-        ret = (jsonify({'id': c.lastrowid, 'nome': dados['nome'], 'papel': dados['papel']}), 201)
-    except sqlite3.IntegrityError:
-        ret = (jsonify({'erro': 'Usuário ja existe.'}), 409)
+    if conn.execute('SELECT id FROM usuarios WHERE nome = ?', (dados['nome'],)).fetchone():
+        conn.close()
+        return (jsonify({'erro': 'Usuário ja existe.'}), 409)
+    c = conn.cursor()
+    c.execute('INSERT INTO usuarios (nome, papel) VALUES (?, ?)', (dados['nome'], dados['papel']))
+    conn.commit()
+    ret = (jsonify({'id': c.lastrowid, 'nome': dados['nome'], 'papel': dados['papel']}), 201)
     conn.close()
     return ret
 
@@ -57,16 +57,16 @@ def cadastrar_sala():
     if not user or user['papel'] != 'admin':
         conn.close()
         return (jsonify({'erro': 'Apenas administradores podem cadastrar salas'}), 403)
-    try:
-        c = conn.cursor()
-        c.execute('INSERT INTO salas (nome, capacidade) VALUES (?, ?)', (dados['nome'], dados['capacidade']))
-        sid = c.lastrowid
-        for rid in dados.get('recursos_ids', []):
-            c.execute('INSERT INTO sala_recursos (sala_id, recurso_id) VALUES (?, ?)', (sid, rid))
-        conn.commit()
-        ret = (jsonify({'id': sid, 'nome': dados['nome'], 'capacidade': dados['capacidade']}), 201)
-    except sqlite3.IntegrityError:
-        ret = (jsonify({'erro': 'Sala duplicada. Uma sala com esse nome já existe.'}), 409)
+    if conn.execute('SELECT id FROM salas WHERE nome = ?', (dados['nome'],)).fetchone():
+        conn.close()
+        return (jsonify({'erro': 'Sala duplicada. Uma sala com esse nome já existe.'}), 409)
+    c = conn.cursor()
+    c.execute('INSERT INTO salas (nome, capacidade) VALUES (?, ?)', (dados['nome'], dados['capacidade']))
+    sid = c.lastrowid
+    for rid in dados.get('recursos_ids', []):
+        c.execute('INSERT INTO sala_recursos (sala_id, recurso_id) VALUES (?, ?)', (sid, rid))
+    conn.commit()
+    ret = (jsonify({'id': sid, 'nome': dados['nome'], 'capacidade': dados['capacidade']}), 201)
     conn.close()
     return ret
 
