@@ -13,9 +13,9 @@ def init_db():
             print('Banco de dados já possui registros. Nenhum seed foi aplicado.')
             return
 
-        admin = Usuario(nome='admin', login='admin', senha=generate_password_hash('admin123'), papel='admin')
-        pedro = Usuario(nome='pedro', login='pedro', senha=generate_password_hash('1234'), papel='comum')
-        maria = Usuario(nome='maria', login='maria', senha=generate_password_hash('1234'), papel='comum')
+        admin = Usuario(nome='Admin', login='admin', senha=generate_password_hash('admin123'), papel='admin')
+        pedro = Usuario(nome='Pedro', login='Pedro', senha=generate_password_hash('1234'), papel='comum')
+        maria = Usuario(nome='Maria', login='Maria', senha=generate_password_hash('1234'), papel='comum')
 
         projetor = Recurso(nome='Projetor')
         ar = Recurso(nome='Ar Condicionado')

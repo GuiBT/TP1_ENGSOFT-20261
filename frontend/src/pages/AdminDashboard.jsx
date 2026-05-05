@@ -18,6 +18,10 @@ export default function AdminDashboard({ user }) {
   const [filterDate, setFilterDate] = useState('');
   const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
   const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date().toISOString().slice(0, 10));
+  const usuariosNomeMap = usuarios.reduce((acc, usuario) => {
+    acc[usuario.id] = usuario.nome;
+    return acc;
+  }, {});
 
   // Forms states
   const [newRoom, setNewRoom] = useState({ nome: '', capacidade: '', recursos_ids: [] });
@@ -613,7 +617,7 @@ export default function AdminDashboard({ user }) {
                     </div>
                     <div style={{ textAlign: 'right' }}>
                       <div>{r.horario_inicio} às {r.horario_fim}</div>
-                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Usuário #{r.usuario_id}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Responsável: {usuariosNomeMap[r.usuario_id] || `Usuário #${r.usuario_id}`}</div>
                     </div>
                   </div>
                 ))}
@@ -634,7 +638,7 @@ export default function AdminDashboard({ user }) {
                 <div>
                   <h4 style={{ margin: '0 0 5px 0' }}>{salasMap[r.sala_id] || `Sala #${r.sala_id}`}</h4>
                   <div style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                    Reserva #{r.id} • Usuário ID: {r.usuario_id}
+                    Reserva #{r.id} • Responsável: {usuariosNomeMap[r.usuario_id] || `Usuário #${r.usuario_id}`}
                   </div>
                 </div>
                 <div style={{ textAlign: 'right', fontWeight: 500, display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '8px' }}>
