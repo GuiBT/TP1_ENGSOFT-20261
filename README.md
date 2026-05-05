@@ -6,6 +6,13 @@
 
 ---
 
+## Papéis do Sistema
+* **admin**: gerencia usuários, salas, recursos, reservas e visualiza todas as reservas globais com calendário e filtros.
+* **room_admin**: gerencia salas e recursos, e visualiza todas as reservas de salas do mês com calendário igual ao do admin.
+* **comum**: pode consultar disponibilidade, fazer reservas e gerenciar suas próprias reservas.
+
+---
+
 ## Objetivo do Sistema
 O sistema visa gerenciar o agendamento de espaços comuns, permitindo que usuários visualizem a disponibilidade e realizem reservas de forma autônoma. O foco é evitar conflitos de horários e facilitar a organização do uso dos espaços físicos da instituição. A aplicação será composta por uma API em Flask, interface Web em React e persistência de dados em SQLite.
 
@@ -25,17 +32,21 @@ O sistema visa gerenciar o agendamento de espaços comuns, permitindo que usuár
 * Cadastro e listagem de salas, recursos e usuários
 * Consulta de disponibilidade de sala por data
 * Criação, listagem e cancelamento de reservas
-* Painel administrativo com:
+* Painel do administrador com:
   * cadastro e edição de salas
   * cadastro e remoção de recursos
   * cadastro de usuários
-  * promoção de usuários a admin
-  * despromoção de admins
+  * promoção e despromoção de usuários
   * exclusão de usuários
-  * listagem de todas as reservas
+  * listagem de todas as reservas do sistema
   * filtros de reserva por sala e data
   * calendário de reservas por mês
   * visualização do nome do responsável pela reserva
+* Painel do administrador de salas com:
+  * gerenciamento de salas e recursos
+  * visualização de todas as reservas de salas do mês
+  * calendário de reservas igual ao painel admin
+  * cancelamento de reservas diretamente pelo calendário
 
 ---
 
@@ -50,9 +61,16 @@ O sistema visa gerenciar o agendamento de espaços comuns, permitindo que usuár
 8.  **Gerenciar Recursos (Admin):** Como administrador, quero cadastrar e remover recursos.
 9.  **Gerenciar Usuários (Admin):** Como administrador, quero criar, promover, despromover e excluir usuários.
 10. **Visualizar Reservas Globais (Admin):** Como administrador, quero ver todas as reservas, filtrar por sala/data e navegar por calendário.
-11. **Mostrar Nome do Responsável:** Como administrador, quero ver o nome do usuário responsável pela reserva em vez do ID.
+11. **Visualizar Todas as Reservas de Salas (Room Admin):** Como administrador de salas, quero ver todas as reservas de salas do mês em um calendário igual ao do admin.
+12. **Mostrar Nome do Responsável:** Como administrador, quero ver o nome do usuário responsável pela reserva em vez do ID.
 
 ---
+
+## Cobertura de Testes
+* Cobertura atual: **80%** do código Python testado.
+* Todos os testes backend existentes passam.
+* O projeto usa `pytest` e `pytest-cov` para geração de relatórios de cobertura.
+
 
 ## Documentação UML
 
