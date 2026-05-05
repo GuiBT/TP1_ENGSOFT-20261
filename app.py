@@ -7,9 +7,9 @@ from database import db
 from routes import main_bp
 
 
-def create_app():
+def create_app(config_class=Config):
     app = Flask(__name__)
-    app.config.from_object(Config)
+    app.config.from_object(config_class)
     CORS(app)
     db.init_app(app)
     Migrate(app, db)
