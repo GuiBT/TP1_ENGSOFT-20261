@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://127.0.0.1:5000';
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { Authorization: `Bearer ${token}` } : {};
+};
+
 export default function Dashboard({ user }) {
   const [reservas, setReservas] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -16,7 +21,9 @@ export default function Dashboard({ user }) {
       salasData.forEach(s => mapa[s.id] = s.nome);
       setSalasMap(mapa);
 
-      const resReservas = await fetch(`${API_URL}/reservas?usuario_id=${user.id}`);
+      const resReservas = await fetch(`${API_URL}/reservas`, {
+        headers: getAuthHeaders()
+      });
       const reservasData = await resReservas.json();
       
       reservasData.sort((a, b) => new Date(a.data) - new Date(b.data));
@@ -40,7 +47,7 @@ export default function Dashboard({ user }) {
   const confirmarCancelamento = async () => {
     if (!reservaToDelete) return;
     try {
-      await fetch(`${API_URL}/reservas/${reservaToDelete}`, { method: 'DELETE' });
+      await fetch(`${API_URL}/reservas/${reservaToDelete}`, { method: 'DELETE', headers: getAuthHeaders() });
       carregarDados();
     } catch (err) {
       alert('Erro ao cancelar.');

@@ -3,13 +3,60 @@ from flask import Flask, jsonify, request
 # pyre-ignore-all-errors[21]
 from flask_cors import CORS
 from werkzeug.security import generate_password_hash, check_password_hash
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, BadSignature, SignatureExpired
+from functools import wraps
 from datetime import datetime
+import os
 import sqlite3
 
 app = Flask(__name__)
+app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', 's3cr3t-ch4v3-por-defaut')
 CORS(app)
 
 DB_PATH = 'banco.db'
+
+
+def generate_token(user_id, papel, expires_in=3600):
+    serializer = Serializer(app.config['SECRET_KEY'], expires_in)
+    token = serializer.dumps({"id": user_id, "papel": papel})
+    return token.decode('utf-8') if isinstance(token, bytes) else token
+
+
+def verify_token(token):
+    serializer = Serializer(app.config['SECRET_KEY'])
+    try:
+        return serializer.loads(token)
+    except SignatureExpired:
+        return None
+    except BadSignature:
+        return None
+
+
+def auth_required(f):
+    @wraps(f)
+    def wrapper(*args, **kwargs):
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return jsonify({"erro": "Token de autenticação ausente ou inválido."}), 401
+
+        token = auth_header.split(' ', 1)[1]
+        user = verify_token(token)
+        if not user:
+            return jsonify({"erro": "Token inválido ou expirado."}), 401
+
+        request.user = user
+        return f(*args, **kwargs)
+    return wrapper
+
+
+def admin_required(f):
+    @wraps(f)
+    @auth_required
+    def wrapper(*args, **kwargs):
+        if request.user.get('papel') != 'admin':
+            return jsonify({"erro": "Apenas administradores podem acessar este recurso."}), 403
+        return f(*args, **kwargs)
+    return wrapper
 
 def get_db_connection():
     conn = sqlite3.connect(DB_PATH)
@@ -28,10 +75,15 @@ def cadastrar_usuario():
         return jsonify({"erro": "Parâmetros 'nome', 'login' e 'senha' são obrigatórios"}), 400
         
     papel = dados.get("papel", "comum")
-    usuario_req_id = dados.get("usuario_req_id")
 
     if papel == "admin":
-        if not usuario_req_id:
+        auth_header = request.headers.get('Authorization', '')
+        if not auth_header.startswith('Bearer '):
+            return jsonify({"erro": "Apenas administradores podem criar administradores."}), 403
+
+        token = auth_header.split(' ', 1)[1]
+        user_requestor = verify_token(token)
+        if not user_requestor or user_requestor.get("papel") != "admin":
             return jsonify({"erro": "Apenas administradores podem criar administradores."}), 403
 
     conn = get_db_connection()
@@ -44,12 +96,6 @@ def cadastrar_usuario():
         conn.close()
         return jsonify({"erro": "Login já existe."}), 409
 
-    if papel == "admin":
-        user_requestor = conn.execute("SELECT papel FROM usuarios WHERE id = ?", (usuario_req_id,)).fetchone()
-        if not user_requestor or user_requestor["papel"] != "admin":
-            conn.close()
-            return jsonify({"erro": "Apenas administradores podem criar administradores."}), 403
-
     senha_hash = generate_password_hash(dados["senha"])
     cursor = conn.cursor()
     cursor.execute("INSERT INTO usuarios (nome, login, senha, papel) VALUES (?, ?, ?, ?)",
@@ -60,6 +106,7 @@ def cadastrar_usuario():
     return jsonify({"id": user_id, "nome": dados["nome"], "login": dados["login"], "papel": papel}), 201
 
 @app.route('/usuarios', methods=['GET'])
+@admin_required
 def listar_usuarios():
     conn = get_db_connection()
     usuarios = conn.execute("SELECT id, nome, login, papel FROM usuarios").fetchall()
@@ -79,20 +126,33 @@ def login_usuario():
     if not user or not check_password_hash(user["senha"], dados["senha"]):
         return jsonify({"erro": "Login ou senha inválidos."}), 401
 
+    token = generate_token(user["id"], user["papel"])
+    return jsonify({
+        "token": token,
+        "user": {
+            "id": user["id"],
+            "nome": user["nome"],
+            "login": user["login"],
+            "papel": user["papel"]
+        }
+    }), 200
+
+@app.route('/me', methods=['GET'])
+@auth_required
+def me():
+    conn = get_db_connection()
+    user = conn.execute("SELECT id, nome, login, papel FROM usuarios WHERE id = ?", (request.user["id"],)).fetchone()
+    conn.close()
+
+    if not user:
+        return jsonify({"erro": "Usuário não encontrado."}), 404
+
     return jsonify({"id": user["id"], "nome": user["nome"], "login": user["login"], "papel": user["papel"]}), 200
 
 @app.route('/usuarios/<int:id>/promover', methods=['POST'])
+@admin_required
 def promover_usuario(id):
-    dados = request.json
-    if not dados or "usuario_req_id" not in dados:
-        return jsonify({"erro": "Parâmetro 'usuario_req_id' é obrigatório."}), 400
-
     conn = get_db_connection()
-    requestor = conn.execute("SELECT papel FROM usuarios WHERE id = ?", (dados["usuario_req_id"],)).fetchone()
-    if not requestor or requestor["papel"] != "admin":
-        conn.close()
-        return jsonify({"erro": "Apenas administradores podem promover usuários."}), 403
-
     usuario = conn.execute("SELECT id FROM usuarios WHERE id = ?", (id,)).fetchone()
     if not usuario:
         conn.close()
@@ -104,6 +164,7 @@ def promover_usuario(id):
     return jsonify({"mensagem": "Usuário promovido a administrador com sucesso."}), 200
 
 @app.route('/recursos', methods=['POST'])
+@admin_required
 def cadastrar_recurso():
     dados = request.json
     if not dados or "usuario_req_id" not in dados or "nome" not in dados:
@@ -140,6 +201,7 @@ def listar_recursos():
     return jsonify([dict(r) for r in recursos]), 200
 
 @app.route('/recursos/<int:id>', methods=['DELETE'])
+@admin_required
 def deletar_recurso(id):
     conn = get_db_connection()
     conn.execute("DELETE FROM sala_recursos WHERE recurso_id = ?", (id,))
@@ -182,10 +244,11 @@ def detalhes_sala(id):
     return jsonify(sala_dict), 200
 
 @app.route('/salas', methods=['POST'])
+@admin_required
 def cadastrar_sala():
     """História 7: Cadastrar Sala (Admin)"""
     dados = request.json
-    if not dados or "usuario_req_id" not in dados or "nome" not in dados or "capacidade" not in dados:
+    if not dados or "nome" not in dados or "capacidade" not in dados:
         return jsonify({"erro": "Parâmetros obrigatórios faltando"}), 400
         
     conn = get_db_connection()
@@ -194,11 +257,6 @@ def cadastrar_sala():
     if sala_existente:
         conn.close()
         return jsonify({"erro": "Sala duplicada. Uma sala com esse nome já existe."}), 409
-    
-    user = conn.execute("SELECT papel FROM usuarios WHERE id = ?", (dados["usuario_req_id"],)).fetchone()
-    if not user or user["papel"] != "admin":
-        conn.close()
-        return jsonify({"erro": "Apenas administradores podem cadastrar salas"}), 403
         
     cursor = conn.cursor()
     cursor.execute("INSERT INTO salas (nome, capacidade) VALUES (?, ?)", (dados["nome"], dados["capacidade"]))
@@ -206,7 +264,6 @@ def cadastrar_sala():
     
     recursos_ids = dados.get("recursos_ids", [])
     for rec_id in recursos_ids:
-        # Cadastra o vínculo de Muitos Para Muitos
         cursor.execute("INSERT INTO sala_recursos (sala_id, recurso_id) VALUES (?, ?)", (sala_id, rec_id))
         
     conn.commit()
@@ -214,6 +271,7 @@ def cadastrar_sala():
     return jsonify({"id": sala_id, "nome": dados["nome"], "capacidade": dados["capacidade"]}), 201
 
 @app.route('/salas/<int:id>', methods=['PUT'])
+@admin_required
 def atualizar_sala(id):
     dados = request.json
     if not dados or "nome" not in dados or "capacidade" not in dados:
@@ -239,6 +297,7 @@ def atualizar_sala(id):
     return jsonify({"mensagem": "Sala atualizada com sucesso"}), 200
 
 @app.route('/salas/<int:id>', methods=['DELETE'])
+@admin_required
 def deletar_sala(id):
     conn = get_db_connection()
     sala = conn.execute("SELECT id FROM salas WHERE id = ?", (id,)).fetchone()
@@ -304,20 +363,17 @@ def _conflito_de_horario(inicio_novo_str, fim_novo_str, reservas_existentes):
     return False
 
 @app.route('/reservas', methods=['POST'])
+@auth_required
 def realizar_reserva():
     """História 4: Realizar Reserva e História 8"""
     dados = request.json
-    campos = ["sala_id", "usuario_id", "data", "horario_inicio", "horario_fim"]
+    campos = ["sala_id", "data", "horario_inicio", "horario_fim"]
     if not dados or not all(c in dados for c in campos):
         return jsonify({"erro": "Dados obrigatórios faltando"}), 400
         
     conn = get_db_connection()
     
-    # 1. Valida Usuário 
-    user = conn.execute("SELECT id FROM usuarios WHERE id = ?", (dados["usuario_id"],)).fetchone()
-    if not user:
-        conn.close()
-        return jsonify({"erro": "Usuário informado não existe no banco"}), 404
+    usuario_id = request.user["id"]
 
     # 2. Valida Sala
     sala = conn.execute("SELECT id FROM salas WHERE id = ?", (dados["sala_id"],)).fetchone()
@@ -366,11 +422,15 @@ def realizar_reserva():
     }), 201
 
 @app.route('/reservas', methods=['GET'])
+@auth_required
 def listar_minhas_reservas():
     """História 5: Meus Agendamentos"""
     usuario_id = request.args.get('usuario_id')
-    if not usuario_id:
-        return jsonify({"erro": "O parâmetro 'usuario_id' é obrigatório"}), 400
+    if usuario_id:
+        if request.user["papel"] != "admin" and int(usuario_id) != request.user["id"]:
+            return jsonify({"erro": "Acesso negado."}), 403
+    else:
+        usuario_id = request.user["id"]
         
     conn = get_db_connection()
     minhas_reservas = conn.execute("SELECT * FROM reservas WHERE usuario_id = ?", (usuario_id,)).fetchall()
@@ -379,20 +439,26 @@ def listar_minhas_reservas():
     return jsonify([dict(r) for r in minhas_reservas]), 200
 
 @app.route('/reservas/<int:id>', methods=['DELETE'])
+@auth_required
 def cancelar_reserva(id):
     """História 6: Cancelar Reserva"""
     conn = get_db_connection()
-    reserva = conn.execute("SELECT id FROM reservas WHERE id = ?", (id,)).fetchone()
+    reserva = conn.execute("SELECT id, usuario_id FROM reservas WHERE id = ?", (id,)).fetchone()
     if not reserva:
         conn.close()
         return jsonify({"erro": "Reserva não encontrada"}), 404
         
+    if request.user["papel"] != "admin" and reserva["usuario_id"] != request.user["id"]:
+        conn.close()
+        return jsonify({"erro": "Apenas o dono da reserva ou um admin pode cancelar."}), 403
+
     conn.execute("DELETE FROM reservas WHERE id = ?", (id,))
     conn.commit()
     conn.close()
     return jsonify({"mensagem": "Reserva cancelada com sucesso"}), 200
 
 @app.route('/reservas/todas', methods=['GET'])
+@admin_required
 def listar_todas_reservas():
     """Lista todas as reservas"""
     conn = get_db_connection()

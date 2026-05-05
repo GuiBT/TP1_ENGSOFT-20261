@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://127.0.0.1:5000';
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' };
+};
+
 export default function AdminDashboard({ user }) {
   const [reservas, setReservas] = useState([]);
   const [salas, setSalas] = useState([]);
@@ -30,20 +35,20 @@ export default function AdminDashboard({ user }) {
 
   const carregarDados = async () => {
     try {
-      const resSalas = await fetch(`${API_URL}/salas`);
+      const resSalas = await fetch(`${API_URL}/salas`, { headers: getAuthHeaders() });
       const salasData = await resSalas.json();
       setSalas(salasData);
       const mapS = {};
       salasData.forEach(s => mapS[s.id] = s.nome);
       setSalasMap(mapS);
 
-      const resRec = await fetch(`${API_URL}/recursos`);
+      const resRec = await fetch(`${API_URL}/recursos`, { headers: getAuthHeaders() });
       setRecursos(await resRec.json());
 
-      const resUsuarios = await fetch(`${API_URL}/usuarios`);
+      const resUsuarios = await fetch(`${API_URL}/usuarios`, { headers: getAuthHeaders() });
       setUsuarios(await resUsuarios.json());
 
-      const resReservas = await fetch(`${API_URL}/reservas/todas`);
+      const resReservas = await fetch(`${API_URL}/reservas/todas`, { headers: getAuthHeaders() });
       const reservasData = await resReservas.json();
       reservasData.sort((a, b) => new Date(b.data) - new Date(a.data));
       setReservas(reservasData);
@@ -63,9 +68,8 @@ export default function AdminDashboard({ user }) {
     try {
       const res = await fetch(`${API_URL}/salas`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ 
-          usuario_req_id: user.id, 
           nome: newRoom.nome, 
           capacidade: parseInt(newRoom.capacidade), 
           recursos_ids: newRoom.recursos_ids 
@@ -86,9 +90,8 @@ export default function AdminDashboard({ user }) {
     try {
       const res = await fetch(`${API_URL}/recursos`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ 
-          usuario_req_id: user.id, 
           nome: newResource.nome
         })
       });
@@ -105,7 +108,7 @@ export default function AdminDashboard({ user }) {
   const confirmDeleteResource = async () => {
     if (!resourceToDelete) return;
     try {
-      const res = await fetch(`${API_URL}/recursos/${resourceToDelete}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/recursos/${resourceToDelete}`, { method: 'DELETE', headers: getAuthHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.erro);
       showToast('Recurso removido.');
@@ -120,7 +123,7 @@ export default function AdminDashboard({ user }) {
   const confirmDeleteRoom = async () => {
     if (!roomToDelete) return;
     try {
-      const res = await fetch(`${API_URL}/salas/${roomToDelete}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/salas/${roomToDelete}`, { method: 'DELETE', headers: getAuthHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.erro);
       showToast('Sala e suas reservas removidas com sucesso.');
@@ -136,7 +139,7 @@ export default function AdminDashboard({ user }) {
   const confirmDeleteAdminReserva = async () => {
     if (!adminReservaToDelete) return;
     try {
-      const res = await fetch(`${API_URL}/reservas/${adminReservaToDelete}`, { method: 'DELETE' });
+      const res = await fetch(`${API_URL}/reservas/${adminReservaToDelete}`, { method: 'DELETE', headers: getAuthHeaders() });
       const data = await res.json();
       if (!res.ok) throw new Error(data.erro);
       showToast('Reserva removida com sucesso (Modo Admin).');
@@ -160,13 +163,12 @@ export default function AdminDashboard({ user }) {
 
       const res = await fetch(`${API_URL}/usuarios`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify({ 
           nome: newUser.nome,
           login: newUser.login,
           senha: newUser.senha,
-          papel: newUser.papel,
-          usuario_req_id: user.id
+          papel: newUser.papel
         })
       });
       const data = await res.json();
@@ -355,8 +357,7 @@ export default function AdminDashboard({ user }) {
                         try {
                           const res = await fetch(`${API_URL}/usuarios/${u.id}/promover`, {
                             method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ usuario_req_id: user.id })
+                            headers: getAuthHeaders()
                           });
                           const data = await res.json();
                           if (!res.ok) throw new Error(data.erro);

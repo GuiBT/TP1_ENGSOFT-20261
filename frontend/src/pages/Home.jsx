@@ -2,6 +2,11 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://127.0.0.1:5000';
 
+const getAuthHeaders = () => {
+  const token = localStorage.getItem('token');
+  return token ? { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` } : { 'Content-Type': 'application/json' };
+};
+
 export default function Home({ user }) {
   const [salas, setSalas] = useState([]);
   const [detalhes, setDetalhes] = useState(null); // Sala selecionada no modal
@@ -44,7 +49,6 @@ export default function Home({ user }) {
 
     const payload = {
       sala_id: detalhes.id,
-      usuario_id: user.id,
       data: data,
       horario_inicio: horaInicio,
       horario_fim: horaFim
@@ -53,7 +57,7 @@ export default function Home({ user }) {
     try {
       const res = await fetch(`${API_URL}/reservas`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: getAuthHeaders(),
         body: JSON.stringify(payload)
       });
       

@@ -28,7 +28,8 @@ export default function Login({ setCurrentUser }) {
         throw new Error(data.erro || 'Falha ao fazer login.');
       }
 
-      setCurrentUser(data);
+      localStorage.setItem('token', data.token);
+      setCurrentUser(data.user);
     } catch (err) {
       setError(err.message);
     }
