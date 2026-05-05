@@ -96,13 +96,46 @@ def me():
 @main_bp.route('/usuarios/<int:id>/promover', methods=['POST'])
 @admin_required
 def promover_usuario(id):
-    usuario = Usuario.query.get(id)
+    usuario = db.session.get(Usuario, id)
     if not usuario:
         return jsonify({'erro': 'Usuário não encontrado.'}), 404
 
     usuario.papel = 'admin'
     db.session.commit()
     return jsonify({'mensagem': 'Usuário promovido a administrador com sucesso.'}), 200
+
+
+@main_bp.route('/usuarios/<int:id>/demote', methods=['POST'])
+@admin_required
+def demote_usuario(id):
+    usuario = db.session.get(Usuario, id)
+    if not usuario:
+        return jsonify({'erro': 'Usuário não encontrado.'}), 404
+
+    if usuario.papel != 'admin':
+        return jsonify({'erro': 'Usuário não é administrador.'}), 400
+
+    if usuario.id == request.user['id']:
+        return jsonify({'erro': 'Administradores não podem se despromover.'}), 400
+
+    usuario.papel = 'comum'
+    db.session.commit()
+    return jsonify({'mensagem': 'Usuário rebaixado para comum com sucesso.'}), 200
+
+
+@main_bp.route('/usuarios/<int:id>', methods=['DELETE'])
+@admin_required
+def deletar_usuario(id):
+    usuario = db.session.get(Usuario, id)
+    if not usuario:
+        return jsonify({'erro': 'Usuário não encontrado.'}), 404
+
+    if usuario.id == request.user['id']:
+        return jsonify({'erro': 'Administradores não podem excluir a si mesmos.'}), 400
+
+    db.session.delete(usuario)
+    db.session.commit()
+    return jsonify({'mensagem': 'Usuário removido com sucesso'}), 200
 
 
 @main_bp.route('/recursos', methods=['POST'])
@@ -132,7 +165,7 @@ def listar_recursos():
 @main_bp.route('/recursos/<int:id>', methods=['DELETE'])
 @admin_required
 def deletar_recurso(id):
-    recurso = Recurso.query.get(id)
+    recurso = db.session.get(Recurso, id)
     if not recurso:
         return jsonify({'erro': 'Recurso não encontrado'}), 404
 
@@ -149,7 +182,7 @@ def listar_salas():
 
 @main_bp.route('/salas/<int:id>', methods=['GET'])
 def detalhes_sala(id):
-    sala = Sala.query.get(id)
+    sala = db.session.get(Sala, id)
     if not sala:
         return jsonify({'erro': 'Sala não encontrada'}), 404
 
@@ -192,7 +225,7 @@ def atualizar_sala(id):
     if not dados or 'nome' not in dados or 'capacidade' not in dados:
         return jsonify({'erro': 'Parâmetros obrigatórios faltando'}), 400
 
-    sala = Sala.query.get(id)
+    sala = db.session.get(Sala, id)
     if not sala:
         return jsonify({'erro': 'Sala não encontrada'}), 404
 
@@ -209,7 +242,7 @@ def atualizar_sala(id):
 @main_bp.route('/salas/<int:id>', methods=['DELETE'])
 @admin_required
 def deletar_sala(id):
-    sala = Sala.query.get(id)
+    sala = db.session.get(Sala, id)
     if not sala:
         return jsonify({'erro': 'Sala não encontrada'}), 404
 
@@ -313,7 +346,7 @@ def listar_minhas_reservas():
 @main_bp.route('/reservas/<int:id>', methods=['DELETE'])
 @auth_required
 def cancelar_reserva(id):
-    reserva = Reserva.query.get(id)
+    reserva = db.session.get(Reserva, id)
     if not reserva:
         return jsonify({'erro': 'Reserva não encontrada'}), 404
 

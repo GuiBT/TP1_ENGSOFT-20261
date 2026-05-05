@@ -25,6 +25,7 @@ export default function AdminDashboard({ user }) {
   const [resourceToDelete, setResourceToDelete] = useState(null);
   const [roomToDelete, setRoomToDelete] = useState(null);
   const [adminReservaToDelete, setAdminReservaToDelete] = useState(null);
+  const [userActionConfirm, setUserActionConfirm] = useState(null);
 
   const [toast, setToast] = useState({ msg: '', type: '' });
 
@@ -175,6 +176,84 @@ export default function AdminDashboard({ user }) {
       if (!res.ok) throw new Error(data.erro);
       showToast('Usuário criado com sucesso!');
       setNewUser({ nome: '', login: '', senha: '', confirmar_senha: '', papel: 'comum' });
+      carregarDados();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handlePromoteUser = async (userToPromote) => {
+    try {
+      const res = await fetch(`${API_URL}/usuarios/${userToPromote.id}/promover`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.erro);
+      showToast('Usuário promovido a admin!');
+      carregarDados();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleRequestDemoteUser = (userToDemote) => {
+    setUserActionConfirm({
+      tipo: 'demote',
+      title: 'Rebaixar Usuário?',
+      message: `Deseja rebaixar ${userToDemote.nome} (${userToDemote.login}) para usuário comum?`,
+      confirmText: 'Rebaixar',
+      payload: userToDemote
+    });
+  };
+
+  const handleRequestDeleteUser = (userToDelete) => {
+    setUserActionConfirm({
+      tipo: 'delete',
+      title: 'Excluir Usuário?',
+      message: `Tem certeza que deseja excluir ${userToDelete.nome} (${userToDelete.login}) do sistema?`,
+      confirmText: 'Excluir',
+      payload: userToDelete
+    });
+  };
+
+  const confirmUserAction = async () => {
+    if (!userActionConfirm) return;
+    const { tipo, payload } = userActionConfirm;
+    setUserActionConfirm(null);
+
+    if (tipo === 'demote') {
+      return await handleDemoteUser(payload);
+    }
+    if (tipo === 'delete') {
+      return await handleDeleteUser(payload);
+    }
+  };
+
+  const handleDemoteUser = async (userToDemote) => {
+    try {
+      const res = await fetch(`${API_URL}/usuarios/${userToDemote.id}/demote`, {
+        method: 'POST',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.erro);
+      showToast('Usuário rebaixado para comum!');
+      carregarDados();
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleDeleteUser = async (userToDelete) => {
+    try {
+      const res = await fetch(`${API_URL}/usuarios/${userToDelete.id}`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.erro);
+      showToast('Usuário removido com sucesso!');
       carregarDados();
     } catch (err) {
       showToast(err.message, 'error');
@@ -339,9 +418,9 @@ export default function AdminDashboard({ user }) {
             </form>
           </div>
 
-          {/* Promover Usuários */}
+          {/* Gerenciar Usuários */}
           <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
-            <h3>⭐ Promover Usuário</h3>
+            <h3>👥 Gerenciar Usuários</h3>
             {usuarios.length === 0 ? (
               <p style={{ color: 'var(--text-muted)' }}>Carregando usuários...</p>
             ) : (
@@ -352,26 +431,26 @@ export default function AdminDashboard({ user }) {
                       <strong>{u.nome}</strong> <span style={{ color: 'var(--text-muted)' }}>({u.login})</span>
                       <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Papel: {u.papel}</div>
                     </div>
-                    {u.papel !== 'admin' ? (
-                      <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={async () => {
-                        try {
-                          const res = await fetch(`${API_URL}/usuarios/${u.id}/promover`, {
-                            method: 'POST',
-                            headers: getAuthHeaders()
-                          });
-                          const data = await res.json();
-                          if (!res.ok) throw new Error(data.erro);
-                          showToast('Usuário promovido a admin!');
-                          carregarDados();
-                        } catch (err) {
-                          showToast(err.message, 'error');
-                        }
-                      }}>
-                        Promover
-                      </button>
-                    ) : (
-                      <span style={{ color: 'var(--success-color)', fontWeight: 600 }}>Admin</span>
-                    )}
+                    <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                      {u.id === user.id ? (
+                        <span style={{ color: 'var(--primary-color)', fontWeight: 700 }}>Você</span>
+                      ) : (
+                        <>
+                          {u.papel !== 'admin' ? (
+                            <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={() => handlePromoteUser(u)}>
+                              Promover
+                            </button>
+                          ) : (
+                            <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={() => handleRequestDemoteUser(u)}>
+                              Rebaixar
+                            </button>
+                          )}
+                          <button className="btn btn-danger" style={{ padding: '6px 12px' }} onClick={() => handleRequestDeleteUser(u)}>
+                            Excluir
+                          </button>
+                        </>
+                      )}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -534,6 +613,23 @@ export default function AdminDashboard({ user }) {
             <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
               <button className="btn btn-secondary" onClick={() => setAdminReservaToDelete(null)}>Não, manter</button>
               <button className="btn btn-danger" onClick={confirmDeleteAdminReserva}>Sim, remover</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {userActionConfirm && (
+        <div style={{
+          position: 'fixed', inset: 0,
+          background: 'rgba(0,0,0,0.6)', backdropFilter: 'blur(4px)',
+          display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 10000
+        }}>
+          <div className="glass-panel animate-enter" style={{ width: '100%', maxWidth: '420px', margin: '20px', textAlign: 'center', background: '#fff' }}>
+            <h2>{userActionConfirm.title}</h2>
+            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>{userActionConfirm.message}</p>
+            <div style={{ display: 'flex', gap: '1rem', justifyContent: 'center' }}>
+              <button className="btn btn-secondary" onClick={() => setUserActionConfirm(null)}>Cancelar</button>
+              <button className="btn btn-danger" onClick={confirmUserAction}>{userActionConfirm.confirmText}</button>
             </div>
           </div>
         </div>
