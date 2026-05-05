@@ -216,6 +216,51 @@ def listar_salas():
     return jsonify([{'id': s.id, 'nome': s.nome, 'capacidade': s.capacidade} for s in salas]), 200
 
 
+@main_bp.route('/salas/disponiveis', methods=['GET'])
+def buscar_salas_disponiveis():
+    data_buscada = request.args.get('data')
+    horario_inicio = request.args.get('horario_inicio')
+    horario_fim = request.args.get('horario_fim')
+    recursos_ids = request.args.get('recursos_ids', '')
+
+    if not data_buscada or not horario_inicio or not horario_fim:
+        return jsonify({'erro': "Parâmetros 'data', 'horario_inicio' e 'horario_fim' são obrigatórios."}), 400
+
+    if horario_inicio >= horario_fim:
+        return jsonify({'erro': 'O horário de início deve ser anterior ao horário de fim.'}), 400
+
+    try:
+        recurso_ids = [int(r.strip()) for r in recursos_ids.split(',') if r.strip()]
+    except ValueError:
+        return jsonify({'erro': "O parâmetro 'recursos_ids' deve conter valores numéricos separados por vírgula."}), 400
+
+    reservas_do_dia = Reserva.query.filter_by(data=data_buscada).all()
+    salas_bloqueadas = set()
+    for reserva in reservas_do_dia:
+        if _conflito_de_horario(horario_inicio, horario_fim, [reserva]):
+            salas_bloqueadas.add(reserva.sala_id)
+
+    query = Sala.query
+    if recurso_ids:
+        query = query.join(Sala.recursos).filter(Recurso.id.in_(recurso_ids))
+        query = query.group_by(Sala.id).having(db.func.count(Recurso.id) == len(recurso_ids))
+
+    if salas_bloqueadas:
+        query = query.filter(~Sala.id.in_(salas_bloqueadas))
+
+    salas_disponiveis = query.all()
+    resultado = []
+    for sala in salas_disponiveis:
+        resultado.append({
+            'id': sala.id,
+            'nome': sala.nome,
+            'capacidade': sala.capacidade,
+            'recursos': [rec.nome for rec in sala.recursos]
+        })
+
+    return jsonify(resultado), 200
+
+
 @main_bp.route('/salas/<int:id>', methods=['GET'])
 def detalhes_sala(id):
     sala = db.session.get(Sala, id)

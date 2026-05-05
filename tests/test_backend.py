@@ -172,6 +172,31 @@ def test_user_cannot_update_to_existing_login(client):
     assert 'Login já em uso' in response.get_json()['erro']
 
 
+def test_busca_disponibilidade_sem_recursos(client):
+    response = client.get('/salas/disponiveis?data=2026-03-25&horario_inicio=09:00&horario_fim=10:00')
+    assert response.status_code == 200
+    salas = response.get_json()
+    assert any(s['nome'] == 'Sala 101' for s in salas)
+    assert any(s['nome'] == 'Laboratório de Informática' for s in salas)
+    assert all(s['nome'] != 'Sala 101' or s['capacidade'] == 30 for s in salas)
+
+
+def test_busca_disponibilidade_com_conflito(client):
+    response = client.get('/salas/disponiveis?data=2026-03-25&horario_inicio=14:30&horario_fim=15:00')
+    assert response.status_code == 200
+    salas = response.get_json()
+    assert not any(s['nome'] == 'Sala 101' for s in salas)
+    assert any(s['nome'] == 'Laboratório de Informática' for s in salas)
+
+
+def test_busca_disponibilidade_por_recursos(client):
+    response = client.get('/salas/disponiveis?data=2026-03-25&horario_inicio=14:30&horario_fim=15:00&recursos_ids=3')
+    assert response.status_code == 200
+    salas = response.get_json()
+    assert len(salas) == 1
+    assert salas[0]['nome'] == 'Laboratório de Informática'
+
+
 def test_admin_can_filter_reservations_by_date(client):
     token_user, _ = login(client, 'pedro', '1234')
     response = client.post('/reservas', headers={**auth_headers(token_user), 'Content-Type': 'application/json'}, json={

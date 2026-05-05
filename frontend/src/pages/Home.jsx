@@ -9,6 +9,8 @@ const getAuthHeaders = () => {
 
 export default function Home({ user }) {
   const [salas, setSalas] = useState([]);
+  const [recursos, setRecursos] = useState([]);
+  const [disponiveis, setDisponiveis] = useState(null);
   const [detalhes, setDetalhes] = useState(null); // Sala selecionada no modal
   const [erro, setErro] = useState('');
   const [sucesso, setSucesso] = useState('');
@@ -17,11 +19,17 @@ export default function Home({ user }) {
   const [data, setData] = useState('');
   const [horaInicio, setHoraInicio] = useState('');
   const [horaFim, setHoraFim] = useState('');
+  const [recursosSelecionados, setRecursosSelecionados] = useState([]);
 
   useEffect(() => {
     fetch(`${API_URL}/salas`)
       .then(res => res.json())
       .then(data => setSalas(data))
+      .catch(err => console.error(err));
+
+    fetch(`${API_URL}/recursos`)
+      .then(res => res.json())
+      .then(data => setRecursos(data))
       .catch(err => console.error(err));
   }, []);
 
@@ -74,28 +82,121 @@ export default function Home({ user }) {
     }
   };
 
+  const buscarDisponibilidade = async () => {
+    setErro('');
+    setDisponiveis(null);
+
+    if (!data || !horaInicio || !horaFim) {
+      setErro('Preencha data, horário de início e horário de fim para buscar disponibilidade.');
+      return;
+    }
+
+    if (horaInicio >= horaFim) {
+      setErro('O horário de início deve ser anterior ao horário de fim.');
+      return;
+    }
+
+    const params = new URLSearchParams({
+      data,
+      horario_inicio: horaInicio,
+      horario_fim: horaFim
+    });
+
+    if (recursosSelecionados.length > 0) {
+      params.append('recursos_ids', recursosSelecionados.join(','));
+    }
+
+    try {
+      const res = await fetch(`${API_URL}/salas/disponiveis?${params.toString()}`);
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.erro || 'Erro ao buscar disponibilidade.');
+      }
+      setDisponiveis(data);
+    } catch (err) {
+      setErro(err.message);
+    }
+  };
+
   return (
     <>
       <div className="animate-enter">
         <h1>Descubra nossos Espaços</h1>
         <p style={{ color: 'var(--text-muted)', marginBottom: '3rem' }}>
-          Selecione uma sala abaixo para visualizar seus equipamentos e realizar um agendamento.
+          Encontre salas livres por horário e recursos, ou explore todas as salas disponíveis.
         </p>
 
+        <div className="glass-panel" style={{ marginBottom: '2rem' }}>
+          <h2>Busca Avançada de Disponibilidade</h2>
+          <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem' }}>
+              <div className="input-group">
+                <label>Data</label>
+                <input type="date" value={data} onChange={e => setData(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Horário Início</label>
+                <input type="time" value={horaInicio} onChange={e => setHoraInicio(e.target.value)} />
+              </div>
+              <div className="input-group">
+                <label>Horário Fim</label>
+                <input type="time" value={horaFim} onChange={e => setHoraFim(e.target.value)} />
+              </div>
+            </div>
+
+            <div className="input-group">
+              <label>Recursos</label>
+              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: '0.75rem', padding: '0.75rem', border: '1px solid var(--surface-border)', borderRadius: '12px', background: 'var(--bg-color)' }}>
+                {recursos.length === 0 ? (
+                  <span style={{ color: 'var(--text-muted)' }}>Nenhum recurso cadastrado.</span>
+                ) : recursos.map(rec => (
+                  <label key={rec.id} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.95rem' }}>
+                    <input
+                      type="checkbox"
+                      checked={recursosSelecionados.includes(rec.id)}
+                      onChange={e => {
+                        if (e.target.checked) {
+                          setRecursosSelecionados([...recursosSelecionados, rec.id]);
+                        } else {
+                          setRecursosSelecionados(recursosSelecionados.filter(id => id !== rec.id));
+                        }
+                      }}
+                    />
+                    {rec.nome}
+                  </label>
+                ))}
+              </div>
+            </div>
+
+            {erro && <div className="toast-error">{erro}</div>}
+            <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+              <button type="button" className="btn" onClick={buscarDisponibilidade}>Buscar Salas Livres</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setData(''); setHoraInicio(''); setHoraFim(''); setRecursosSelecionados([]); setDisponiveis(null); setErro(''); }}>Limpar</button>
+            </div>
+          </div>
+        </div>
+
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))', gap: '2rem' }}>
-          {salas.map(sala => (
+          {(disponiveis || salas).map(sala => (
             <div key={sala.id} className="glass-panel" style={{ cursor: 'pointer', transition: 'box-shadow 0.3s ease, transform 0.2s ease' }} 
                  onClick={() => abrirModal(sala.id)}
                  onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
                  onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
               <h2 style={{ marginBottom: '0.5rem' }}>{sala.nome}</h2>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', marginBottom: '1.5rem', fontWeight: 500 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '10px', color: 'var(--text-muted)', marginBottom: '1.5rem', fontWeight: 500, flexWrap: 'wrap' }}>
                 <span>👥 {sala.capacidade} pessoas</span>
+                {sala.recursos && sala.recursos.length > 0 && <span>⚡ {sala.recursos.join(', ')}</span>}
               </div>
               <button className="btn" style={{ width: '100%' }}>Verificar Disponibilidade</button>
             </div>
           ))}
-          {salas.length === 0 && <p>Nenhuma sala encontrada. O servidor Flask está rodando?</p>}
+          {disponiveis && disponiveis.length === 0 && (
+            <div className="glass-panel" style={{ textAlign: 'center', padding: '3rem' }}>
+              <h2>Nenhuma sala disponível</h2>
+              <p style={{ color: 'var(--text-muted)' }}>Altere a data, horário ou recursos para encontrar outra opção.</p>
+            </div>
+          )}
+          {!disponiveis && salas.length === 0 && <p>Nenhuma sala encontrada. O servidor Flask está rodando?</p>}
         </div>
       </div>
 
