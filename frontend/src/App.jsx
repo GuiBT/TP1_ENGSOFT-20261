@@ -61,7 +61,7 @@ function App() {
       <Navbar currentView={currentView} setView={setCurrentView} user={currentUser} logout={logout} />
       <main style={{ padding: '0 2rem', maxWidth: '1200px', margin: '0 auto', paddingBottom: '3rem' }}>
         {currentView === 'home' && <Home user={currentUser} />}
-        {currentView === 'dashboard' && <Dashboard user={currentUser} />}
+        {currentView === 'dashboard' && <Dashboard user={currentUser} setCurrentUser={setCurrentUser} />}
         {currentView === 'admin' && currentUser.papel === 'admin' && <AdminDashboard user={currentUser} />}
       </main>
     </>

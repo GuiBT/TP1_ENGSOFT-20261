@@ -93,6 +93,42 @@ def me():
     return jsonify({'id': user.id, 'nome': user.nome, 'login': user.login, 'papel': user.papel}), 200
 
 
+@main_bp.route('/me', methods=['PUT'])
+@auth_required
+def atualizar_me():
+    dados = request.json
+    if not dados:
+        return jsonify({'erro': 'Nenhum dado fornecido para atualização.'}), 400
+
+    usuario = db.session.get(Usuario, request.user['id'])
+    if not usuario:
+        return jsonify({'erro': 'Usuário não encontrado.'}), 404
+
+    novo_nome = dados.get('nome', usuario.nome)
+    novo_login = dados.get('login', usuario.login)
+    nova_senha = dados.get('senha')
+
+    if novo_nome != usuario.nome and Usuario.query.filter(Usuario.nome == novo_nome, Usuario.id != usuario.id).first():
+        return jsonify({'erro': 'Nome já em uso por outro usuário.'}), 409
+
+    if novo_login != usuario.login and Usuario.query.filter(Usuario.login == novo_login, Usuario.id != usuario.id).first():
+        return jsonify({'erro': 'Login já em uso por outro usuário.'}), 409
+
+    usuario.nome = novo_nome
+    usuario.login = novo_login
+
+    if nova_senha:
+        usuario.senha = generate_password_hash(nova_senha)
+
+    try:
+        db.session.commit()
+    except IntegrityError:
+        db.session.rollback()
+        return jsonify({'erro': 'Erro ao atualizar usuário. Nome ou login podem já existir.'}), 409
+
+    return jsonify({'id': usuario.id, 'nome': usuario.nome, 'login': usuario.login, 'papel': usuario.papel}), 200
+
+
 @main_bp.route('/usuarios/<int:id>/promover', methods=['POST'])
 @admin_required
 def promover_usuario(id):

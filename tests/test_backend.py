@@ -132,6 +132,46 @@ def test_admin_cannot_delete_self(client):
     assert response.get_json()['erro'] == 'Administradores não podem excluir a si mesmos.'
 
 
+def test_user_can_update_own_profile(client):
+    response = client.post('/usuarios', json={
+        'nome': 'usuario_temp',
+        'login': 'usuario_temp',
+        'senha': 'senha123'
+    })
+    assert response.status_code == 201
+
+    token, user = login(client, 'usuario_temp', 'senha123')
+    response = client.put('/me', headers={**auth_headers(token), 'Content-Type': 'application/json'}, json={
+        'nome': 'Usuario Atualizado',
+        'login': 'usuario_novo',
+        'senha': 'novaSenha123'
+    })
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['nome'] == 'Usuario Atualizado'
+    assert data['login'] == 'usuario_novo'
+
+    # Login com novo usuário e senha deve funcionar
+    new_token, new_user = login(client, 'usuario_novo', 'novaSenha123')
+    assert new_user['nome'] == 'Usuario Atualizado'
+
+
+def test_user_cannot_update_to_existing_login(client):
+    response = client.post('/usuarios', json={
+        'nome': 'usuario_temp2',
+        'login': 'usuario_temp2',
+        'senha': 'senha123'
+    })
+    assert response.status_code == 201
+
+    token, _ = login(client, 'usuario_temp2', 'senha123')
+    response = client.put('/me', headers={**auth_headers(token), 'Content-Type': 'application/json'}, json={
+        'login': 'admin'
+    })
+    assert response.status_code == 409
+    assert 'Login já em uso' in response.get_json()['erro']
+
+
 def test_admin_can_filter_reservations_by_date(client):
     token_user, _ = login(client, 'pedro', '1234')
     response = client.post('/reservas', headers={**auth_headers(token_user), 'Content-Type': 'application/json'}, json={
