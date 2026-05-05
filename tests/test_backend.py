@@ -56,6 +56,52 @@ def test_create_admin_requires_admin_token(client):
     assert response.status_code == 403
 
 
+def test_admin_can_create_room_admin(client):
+    token, _ = login(client, 'admin', 'admin123')
+    response = client.post('/usuarios', headers=auth_headers(token), json={
+        'nome': 'roomadmin',
+        'login': 'roomadmin',
+        'senha': 'senha123',
+        'papel': 'room_admin'
+    })
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data['papel'] == 'room_admin'
+
+
+def test_regular_user_cannot_create_room_admin(client):
+    token, _ = login(client, 'pedro', '1234')
+    response = client.post('/usuarios', headers=auth_headers(token), json={
+        'nome': 'roomadmin2',
+        'login': 'roomadmin2',
+        'senha': 'senha123',
+        'papel': 'room_admin'
+    })
+    assert response.status_code == 403
+
+
+def test_room_admin_can_manage_sala_and_list_all_reservas(client):
+    token_admin, _ = login(client, 'admin', 'admin123')
+    response = client.post('/usuarios', headers=auth_headers(token_admin), json={
+        'nome': 'roomadminx',
+        'login': 'roomadminx',
+        'senha': 'senha123',
+        'papel': 'room_admin'
+    })
+    assert response.status_code == 201
+
+    token_room_admin, _ = login(client, 'roomadminx', 'senha123')
+    create_room = client.post('/salas', headers={**auth_headers(token_room_admin), 'Content-Type': 'application/json'}, json={
+        'nome': 'Sala Room Admin',
+        'capacidade': 5,
+        'recursos_ids': []
+    })
+    assert create_room.status_code == 201
+
+    all_res = client.get('/reservas/todas', headers=auth_headers(token_room_admin))
+    assert all_res.status_code == 200
+
+
 def test_admin_can_create_room(client):
     token, _ = login(client, 'admin', 'admin123')
     response = client.post('/salas', headers={**auth_headers(token), 'Content-Type': 'application/json'}, json={

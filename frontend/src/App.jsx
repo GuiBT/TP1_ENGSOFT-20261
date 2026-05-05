@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import AdminDashboard from './pages/AdminDashboard';
+import RoomAdminDashboard from './pages/RoomAdminDashboard';
 import Login from './pages/Login';
 import Navbar from './components/Navbar';
 
@@ -63,6 +64,7 @@ function App() {
         {currentView === 'home' && <Home user={currentUser} />}
         {currentView === 'dashboard' && <Dashboard user={currentUser} setCurrentUser={setCurrentUser} />}
         {currentView === 'admin' && currentUser.papel === 'admin' && <AdminDashboard user={currentUser} />}
+        {currentView === 'admin' && currentUser.papel === 'room_admin' && <RoomAdminDashboard user={currentUser} />}
       </main>
     </>
   )

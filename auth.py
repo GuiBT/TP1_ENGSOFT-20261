@@ -45,3 +45,13 @@ def admin_required(f):
             return jsonify({"erro": "Apenas administradores podem acessar este recurso."}), 403
         return f(*args, **kwargs)
     return wrapper
+
+
+def room_admin_required(f):
+    @wraps(f)
+    @auth_required
+    def wrapper(*args, **kwargs):
+        if request.user.get('papel') not in ('admin', 'room_admin'):
+            return jsonify({"erro": "Apenas administradores de salas podem acessar este recurso."}), 403
+        return f(*args, **kwargs)
+    return wrapper

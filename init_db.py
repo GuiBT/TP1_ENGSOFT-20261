@@ -16,6 +16,7 @@ def init_db():
         admin = Usuario(nome='Admin', login='admin', senha=generate_password_hash('admin123'), papel='admin')
         pedro = Usuario(nome='Pedro', login='Pedro', senha=generate_password_hash('1234'), papel='comum')
         maria = Usuario(nome='Maria', login='Maria', senha=generate_password_hash('1234'), papel='comum')
+        room_admin = Usuario(nome='Gerente de Salas', login='gerente_salas', senha=generate_password_hash('1234'), papel='room_admin')
 
         projetor = Recurso(nome='Projetor')
         ar = Recurso(nome='Ar Condicionado')
@@ -25,7 +26,7 @@ def init_db():
         sala1 = Sala(nome='Sala 101', capacidade=30)
         sala2 = Sala(nome='Laboratório de Informática', capacidade=20)
 
-        db.session.add_all([admin, pedro, maria, projetor, ar, computadores, quadro, sala1, sala2])
+        db.session.add_all([admin, pedro, maria, room_admin, projetor, ar, computadores, quadro, sala1, sala2])
         db.session.commit()
 
         sala1.recursos.extend([projetor, ar, quadro])

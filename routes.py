@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from database import db
 from models import Usuario, Recurso, Sala, SalaRecurso, Reserva
-from auth import generate_token, auth_required, admin_required
+from auth import generate_token, auth_required, admin_required, room_admin_required
 
 main_bp = Blueprint('main', __name__)
 
@@ -17,17 +17,17 @@ def cadastrar_usuario():
         return jsonify({'erro': "Parâmetros 'nome', 'login' e 'senha' são obrigatórios"}), 400
 
     papel = dados.get('papel', 'comum')
-    if papel == 'admin':
+    if papel in ('admin', 'room_admin'):
         auth_header = request.headers.get('Authorization', '')
         if not auth_header.startswith('Bearer '):
-            return jsonify({'erro': 'Apenas administradores podem criar administradores.'}), 403
+            return jsonify({'erro': 'Apenas administradores podem criar administradores e administradores de salas.'}), 403
 
         token = auth_header.split(' ', 1)[1]
         requestor = None
         from auth import verify_token
         requestor = verify_token(token)
         if not requestor or requestor.get('papel') != 'admin':
-            return jsonify({'erro': 'Apenas administradores podem criar administradores.'}), 403
+            return jsonify({'erro': 'Apenas administradores podem criar administradores e administradores de salas.'}), 403
 
     if Usuario.query.filter((Usuario.nome == dados['nome']) | (Usuario.login == dados['login'])).first():
         return jsonify({'erro': 'Nome ou login já existe.'}), 409
@@ -148,8 +148,8 @@ def demote_usuario(id):
     if not usuario:
         return jsonify({'erro': 'Usuário não encontrado.'}), 404
 
-    if usuario.papel != 'admin':
-        return jsonify({'erro': 'Usuário não é administrador.'}), 400
+    if usuario.papel not in ('admin', 'room_admin'):
+        return jsonify({'erro': 'Usuário não é um administrador.'}), 400
 
     if usuario.id == request.user['id']:
         return jsonify({'erro': 'Administradores não podem se despromover.'}), 400
@@ -175,7 +175,7 @@ def deletar_usuario(id):
 
 
 @main_bp.route('/recursos', methods=['POST'])
-@admin_required
+@room_admin_required
 def cadastrar_recurso():
     dados = request.json
     if not dados or 'nome' not in dados:
@@ -199,7 +199,7 @@ def listar_recursos():
 
 
 @main_bp.route('/recursos/<int:id>', methods=['DELETE'])
-@admin_required
+@room_admin_required
 def deletar_recurso(id):
     recurso = db.session.get(Recurso, id)
     if not recurso:
@@ -276,7 +276,7 @@ def detalhes_sala(id):
 
 
 @main_bp.route('/salas', methods=['POST'])
-@admin_required
+@room_admin_required
 def cadastrar_sala():
     dados = request.json
     if not dados or 'nome' not in dados or 'capacidade' not in dados:
@@ -300,7 +300,7 @@ def cadastrar_sala():
 
 
 @main_bp.route('/salas/<int:id>', methods=['PUT'])
-@admin_required
+@room_admin_required
 def atualizar_sala(id):
     dados = request.json
     if not dados or 'nome' not in dados or 'capacidade' not in dados:
@@ -321,7 +321,7 @@ def atualizar_sala(id):
 
 
 @main_bp.route('/salas/<int:id>', methods=['DELETE'])
-@admin_required
+@room_admin_required
 def deletar_sala(id):
     sala = db.session.get(Sala, id)
     if not sala:
@@ -408,7 +408,7 @@ def realizar_reserva():
 def listar_minhas_reservas():
     usuario_id = request.args.get('usuario_id')
     if usuario_id:
-        if request.user['papel'] != 'admin' and int(usuario_id) != request.user['id']:
+        if request.user['papel'] not in ('admin', 'room_admin') and int(usuario_id) != request.user['id']:
             return jsonify({'erro': 'Acesso negado.'}), 403
     else:
         usuario_id = request.user['id']
@@ -431,8 +431,8 @@ def cancelar_reserva(id):
     if not reserva:
         return jsonify({'erro': 'Reserva não encontrada'}), 404
 
-    if request.user['papel'] != 'admin' and reserva.usuario_id != request.user['id']:
-        return jsonify({'erro': 'Apenas o dono da reserva ou um admin pode cancelar.'}), 403
+    if request.user['papel'] not in ('admin', 'room_admin') and reserva.usuario_id != request.user['id']:
+        return jsonify({'erro': 'Apenas o dono da reserva ou um administrador pode cancelar.'}), 403
 
     db.session.delete(reserva)
     db.session.commit()
@@ -440,7 +440,7 @@ def cancelar_reserva(id):
 
 
 @main_bp.route('/reservas/todas', methods=['GET'])
-@admin_required
+@room_admin_required
 def listar_todas_reservas():
     query = Reserva.query
     sala_id = request.args.get('sala_id')

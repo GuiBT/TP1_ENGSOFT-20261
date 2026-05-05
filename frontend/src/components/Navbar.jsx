@@ -46,7 +46,7 @@ export default function Navbar({ currentView, setView, user, logout }) {
           Meus Agendamentos
         </button>
 
-        {user.papel === 'admin' && (
+        {(user.papel === 'admin' || user.papel === 'room_admin') && (
           <button 
             className="btn" 
             style={{ 
