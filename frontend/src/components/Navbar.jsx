@@ -1,4 +1,4 @@
-export default function Navbar({ currentView, setView, user, users, changeUser }) {
+export default function Navbar({ currentView, setView, user, logout }) {
   return (
     <nav style={{ 
         display: 'flex', 
@@ -60,19 +60,13 @@ export default function Navbar({ currentView, setView, user, users, changeUser }
           </button>
         )}
 
-        <div style={{ width: '1px', height: '24px', background: 'var(--surface-border)', margin: '0 10px' }}></div>
-
-        <select 
-          value={user.id} 
-          onChange={(e) => changeUser(e.target.value)}
-          style={{ padding: '6px 12px', fontSize: '0.85rem', width: 'auto', background: 'var(--surface-color)' }}
+        <button 
+          className="btn btn-secondary" 
+          style={{ padding: '6px 12px', marginLeft: '0.5rem' }}
+          onClick={logout}
         >
-          {users.map(u => (
-            <option key={u.id} value={u.id}>
-              {u.nome} ({u.papel})
-            </option>
-          ))}
-        </select>
+          Sair
+        </button>
 
         <div style={{ 
             marginLeft: '0.5rem', 

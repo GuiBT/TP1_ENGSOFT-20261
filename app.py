@@ -2,6 +2,7 @@
 from flask import Flask, jsonify, request
 # pyre-ignore-all-errors[21]
 from flask_cors import CORS
+from werkzeug.security import generate_password_hash, check_password_hash
 from datetime import datetime
 import sqlite3
 
@@ -23,29 +24,84 @@ def get_db_connection():
 @app.route('/usuarios', methods=['POST'])
 def cadastrar_usuario():
     dados = request.json
-    if not dados or "nome" not in dados or "papel" not in dados:
-        return jsonify({"erro": "Parâmetros 'nome' e 'papel' são obrigatórios"}), 400
+    if not dados or "nome" not in dados or "login" not in dados or "senha" not in dados:
+        return jsonify({"erro": "Parâmetros 'nome', 'login' e 'senha' são obrigatórios"}), 400
         
+    papel = dados.get("papel", "comum")
+    usuario_req_id = dados.get("usuario_req_id")
+
+    if papel == "admin":
+        if not usuario_req_id:
+            return jsonify({"erro": "Apenas administradores podem criar administradores."}), 403
+
     conn = get_db_connection()
-    
-    usuario_existente = conn.execute("SELECT id FROM usuarios WHERE nome = ?", (dados["nome"],)).fetchone()
-    if usuario_existente:
+
+    if conn.execute("SELECT id FROM usuarios WHERE nome = ?", (dados["nome"],)).fetchone():
         conn.close()
-        return jsonify({"erro": "Usuário ja existe."}), 409
-        
+        return jsonify({"erro": "Nome de usuário já existe."}), 409
+
+    if conn.execute("SELECT id FROM usuarios WHERE login = ?", (dados["login"],)).fetchone():
+        conn.close()
+        return jsonify({"erro": "Login já existe."}), 409
+
+    if papel == "admin":
+        user_requestor = conn.execute("SELECT papel FROM usuarios WHERE id = ?", (usuario_req_id,)).fetchone()
+        if not user_requestor or user_requestor["papel"] != "admin":
+            conn.close()
+            return jsonify({"erro": "Apenas administradores podem criar administradores."}), 403
+
+    senha_hash = generate_password_hash(dados["senha"])
     cursor = conn.cursor()
-    cursor.execute("INSERT INTO usuarios (nome, papel) VALUES (?, ?)", (dados["nome"], dados["papel"]))
+    cursor.execute("INSERT INTO usuarios (nome, login, senha, papel) VALUES (?, ?, ?, ?)",
+                   (dados["nome"], dados["login"], senha_hash, papel))
     conn.commit()
     user_id = cursor.lastrowid
     conn.close()
-    return jsonify({"id": user_id, "nome": dados["nome"], "papel": dados["papel"]}), 201
+    return jsonify({"id": user_id, "nome": dados["nome"], "login": dados["login"], "papel": papel}), 201
 
 @app.route('/usuarios', methods=['GET'])
 def listar_usuarios():
     conn = get_db_connection()
-    usuarios = conn.execute("SELECT id, nome, papel FROM usuarios").fetchall()
+    usuarios = conn.execute("SELECT id, nome, login, papel FROM usuarios").fetchall()
     conn.close()
     return jsonify([dict(u) for u in usuarios]), 200
+
+@app.route('/login', methods=['POST'])
+def login_usuario():
+    dados = request.json
+    if not dados or "login" not in dados or "senha" not in dados:
+        return jsonify({"erro": "Login e senha são obrigatórios."}), 400
+
+    conn = get_db_connection()
+    user = conn.execute("SELECT id, nome, login, senha, papel FROM usuarios WHERE login = ?", (dados["login"],)).fetchone()
+    conn.close()
+
+    if not user or not check_password_hash(user["senha"], dados["senha"]):
+        return jsonify({"erro": "Login ou senha inválidos."}), 401
+
+    return jsonify({"id": user["id"], "nome": user["nome"], "login": user["login"], "papel": user["papel"]}), 200
+
+@app.route('/usuarios/<int:id>/promover', methods=['POST'])
+def promover_usuario(id):
+    dados = request.json
+    if not dados or "usuario_req_id" not in dados:
+        return jsonify({"erro": "Parâmetro 'usuario_req_id' é obrigatório."}), 400
+
+    conn = get_db_connection()
+    requestor = conn.execute("SELECT papel FROM usuarios WHERE id = ?", (dados["usuario_req_id"],)).fetchone()
+    if not requestor or requestor["papel"] != "admin":
+        conn.close()
+        return jsonify({"erro": "Apenas administradores podem promover usuários."}), 403
+
+    usuario = conn.execute("SELECT id FROM usuarios WHERE id = ?", (id,)).fetchone()
+    if not usuario:
+        conn.close()
+        return jsonify({"erro": "Usuário não encontrado."}), 404
+
+    conn.execute("UPDATE usuarios SET papel = 'admin' WHERE id = ?", (id,))
+    conn.commit()
+    conn.close()
+    return jsonify({"mensagem": "Usuário promovido a administrador com sucesso."}), 200
 
 @app.route('/recursos', methods=['POST'])
 def cadastrar_recurso():
@@ -269,7 +325,18 @@ def realizar_reserva():
         conn.close()
         return jsonify({"erro": "Sala informada não existe no banco"}), 404
 
-    # 3. Valida Conflito
+    # 3. Valida Data
+    try:
+        data_reserva = datetime.strptime(dados["data"], "%Y-%m-%d").date()
+    except ValueError:
+        conn.close()
+        return jsonify({"erro": "Formato de data inválido. Use YYYY-MM-DD."}), 400
+
+    if data_reserva < datetime.today().date():
+        conn.close()
+        return jsonify({"erro": "Não é possível reservar para uma data passada."}), 400
+
+    # 4. Valida Conflito
     reservas_da_sala_no_dia = conn.execute('''
         SELECT horario_inicio, horario_fim FROM reservas 
         WHERE sala_id = ? AND data = ?

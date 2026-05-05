@@ -1,5 +1,6 @@
 import sqlite3
 import os
+from werkzeug.security import generate_password_hash
 
 def init_db():
     if os.path.exists('banco.db'):
@@ -15,6 +16,8 @@ def init_db():
     CREATE TABLE usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         nome TEXT UNIQUE NOT NULL,
+        login TEXT UNIQUE NOT NULL,
+        senha TEXT NOT NULL,
         papel TEXT NOT NULL
     )
     ''')
@@ -62,9 +65,12 @@ def init_db():
     ''')
 
     print("Populando o banco com dados iniciais (Seed)...")
-    cursor.execute("INSERT INTO usuarios (nome, papel) VALUES ('admin', 'admin')") # ID 1
-    cursor.execute("INSERT INTO usuarios (nome, papel) VALUES ('pedro', 'comum')") # ID 2
-    cursor.execute("INSERT INTO usuarios (nome, papel) VALUES ('maria', 'comum')") # ID 3
+    cursor.execute("INSERT INTO usuarios (nome, login, senha, papel) VALUES (?, ?, ?, ?)",
+                   ('admin', 'admin', generate_password_hash('admin123'), 'admin')) # ID 1
+    cursor.execute("INSERT INTO usuarios (nome, login, senha, papel) VALUES (?, ?, ?, ?)",
+                   ('pedro', 'pedro', generate_password_hash('1234'), 'comum')) # ID 2
+    cursor.execute("INSERT INTO usuarios (nome, login, senha, papel) VALUES (?, ?, ?, ?)",
+                   ('maria', 'maria', generate_password_hash('1234'), 'comum')) # ID 3
     
     cursor.execute("INSERT INTO recursos (nome) VALUES ('Projetor')")            # ID 1
     cursor.execute("INSERT INTO recursos (nome) VALUES ('Ar Condicionado')")     # ID 2

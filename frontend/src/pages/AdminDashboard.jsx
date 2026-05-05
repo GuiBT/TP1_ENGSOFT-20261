@@ -2,17 +2,18 @@ import { useState, useEffect } from 'react';
 
 const API_URL = 'http://127.0.0.1:5000';
 
-export default function AdminDashboard({ user, refreshUsers }) {
+export default function AdminDashboard({ user }) {
   const [reservas, setReservas] = useState([]);
   const [salas, setSalas] = useState([]);
   const [recursos, setRecursos] = useState([]);
+  const [usuarios, setUsuarios] = useState([]);
   const [salasMap, setSalasMap] = useState({});
   const [loading, setLoading] = useState(true);
 
   // Forms states
   const [newRoom, setNewRoom] = useState({ nome: '', capacidade: '', recursos_ids: [] });
   const [newResource, setNewResource] = useState({ nome: '' });
-  const [newUser, setNewUser] = useState({ nome: '', papel: 'comum' });
+  const [newUser, setNewUser] = useState({ nome: '', login: '', senha: '', confirmar_senha: '', papel: 'comum' });
 
   // Modals States
   const [editingRoom, setEditingRoom] = useState(null);
@@ -38,6 +39,9 @@ export default function AdminDashboard({ user, refreshUsers }) {
 
       const resRec = await fetch(`${API_URL}/recursos`);
       setRecursos(await resRec.json());
+
+      const resUsuarios = await fetch(`${API_URL}/usuarios`);
+      setUsuarios(await resUsuarios.json());
 
       const resReservas = await fetch(`${API_URL}/reservas/todas`);
       const reservasData = await resReservas.json();
@@ -147,19 +151,29 @@ export default function AdminDashboard({ user, refreshUsers }) {
   const handleCreateUser = async (e) => {
     e.preventDefault();
     try {
+      if (!newUser.nome.trim() || !newUser.login.trim() || !newUser.senha || !newUser.confirmar_senha) {
+        throw new Error('Todos os campos de usuário são obrigatórios.');
+      }
+      if (newUser.senha !== newUser.confirmar_senha) {
+        throw new Error('As senhas não coincidem.');
+      }
+
       const res = await fetch(`${API_URL}/usuarios`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
           nome: newUser.nome,
-          papel: newUser.papel
+          login: newUser.login,
+          senha: newUser.senha,
+          papel: newUser.papel,
+          usuario_req_id: user.id
         })
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.erro);
       showToast('Usuário criado com sucesso!');
-      setNewUser({ nome: '', papel: 'comum' });
-      if (refreshUsers) refreshUsers(); // Atualiza a lista na navbar
+      setNewUser({ nome: '', login: '', senha: '', confirmar_senha: '', papel: 'comum' });
+      carregarDados();
     } catch (err) {
       showToast(err.message, 'error');
     }
@@ -301,6 +315,18 @@ export default function AdminDashboard({ user, refreshUsers }) {
                 <input type="text" required value={newUser.nome} onChange={e => setNewUser({...newUser, nome: e.target.value})} />
               </div>
               <div className="input-group">
+                <label>Login</label>
+                <input type="text" required value={newUser.login} onChange={e => setNewUser({...newUser, login: e.target.value})} />
+              </div>
+              <div className="input-group">
+                <label>Senha</label>
+                <input type="password" required value={newUser.senha} onChange={e => setNewUser({...newUser, senha: e.target.value})} />
+              </div>
+              <div className="input-group">
+                <label>Confirmar Senha</label>
+                <input type="password" required value={newUser.confirmar_senha} onChange={e => setNewUser({...newUser, confirmar_senha: e.target.value})} />
+              </div>
+              <div className="input-group">
                 <label>Papel</label>
                 <select value={newUser.papel} onChange={e => setNewUser({...newUser, papel: e.target.value})}>
                   <option value="comum">Comum</option>
@@ -309,6 +335,46 @@ export default function AdminDashboard({ user, refreshUsers }) {
               </div>
               <button type="submit" className="btn" style={{ width: '100%', marginTop: 'auto' }}>Adicionar Usuário</button>
             </form>
+          </div>
+
+          {/* Promover Usuários */}
+          <div className="glass-panel" style={{ display: 'flex', flexDirection: 'column', marginBottom: 0 }}>
+            <h3>⭐ Promover Usuário</h3>
+            {usuarios.length === 0 ? (
+              <p style={{ color: 'var(--text-muted)' }}>Carregando usuários...</p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {usuarios.map(u => (
+                  <div key={u.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', background: 'var(--bg-color)', padding: '10px 12px', borderRadius: '8px', border: '1px solid var(--surface-border)' }}>
+                    <div>
+                      <strong>{u.nome}</strong> <span style={{ color: 'var(--text-muted)' }}>({u.login})</span>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>Papel: {u.papel}</div>
+                    </div>
+                    {u.papel !== 'admin' ? (
+                      <button className="btn btn-secondary" style={{ padding: '6px 12px' }} onClick={async () => {
+                        try {
+                          const res = await fetch(`${API_URL}/usuarios/${u.id}/promover`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ usuario_req_id: user.id })
+                          });
+                          const data = await res.json();
+                          if (!res.ok) throw new Error(data.erro);
+                          showToast('Usuário promovido a admin!');
+                          carregarDados();
+                        } catch (err) {
+                          showToast(err.message, 'error');
+                        }
+                      }}>
+                        Promover
+                      </button>
+                    ) : (
+                      <span style={{ color: 'var(--success-color)', fontWeight: 600 }}>Admin</span>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
         </div>
