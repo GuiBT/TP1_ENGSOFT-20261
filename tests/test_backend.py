@@ -130,3 +130,39 @@ def test_admin_cannot_delete_self(client):
     response = client.delete(f"/usuarios/{user['id']}", headers=auth_headers(token))
     assert response.status_code == 400
     assert response.get_json()['erro'] == 'Administradores não podem excluir a si mesmos.'
+
+
+def test_admin_can_filter_reservations_by_date(client):
+    token_user, _ = login(client, 'pedro', '1234')
+    response = client.post('/reservas', headers={**auth_headers(token_user), 'Content-Type': 'application/json'}, json={
+        'sala_id': 2,
+        'data': '2026-07-01',
+        'horario_inicio': '10:00',
+        'horario_fim': '11:00'
+    })
+    assert response.status_code == 201
+
+    token_admin, _ = login(client, 'admin', 'admin123')
+    filter_res = client.get('/reservas/todas?data=2026-07-01', headers=auth_headers(token_admin))
+    assert filter_res.status_code == 200
+    reservas = filter_res.get_json()
+    assert all(r['data'] == '2026-07-01' for r in reservas)
+    assert any(r['usuario_id'] == 2 for r in reservas)
+
+
+def test_admin_can_filter_reservations_by_room(client):
+    token_user, _ = login(client, 'pedro', '1234')
+    response = client.post('/reservas', headers={**auth_headers(token_user), 'Content-Type': 'application/json'}, json={
+        'sala_id': 1,
+        'data': '2026-07-02',
+        'horario_inicio': '14:00',
+        'horario_fim': '15:00'
+    })
+    assert response.status_code == 201
+
+    token_admin, _ = login(client, 'admin', 'admin123')
+    filter_res = client.get('/reservas/todas?sala_id=1', headers=auth_headers(token_admin))
+    assert filter_res.status_code == 200
+    reservas = filter_res.get_json()
+    assert all(r['sala_id'] == 1 for r in reservas)
+    assert any(r['data'] == '2026-07-02' for r in reservas)

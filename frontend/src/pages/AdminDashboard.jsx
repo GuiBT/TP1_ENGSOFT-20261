@@ -14,6 +14,10 @@ export default function AdminDashboard({ user }) {
   const [usuarios, setUsuarios] = useState([]);
   const [salasMap, setSalasMap] = useState({});
   const [loading, setLoading] = useState(true);
+  const [filterSalaId, setFilterSalaId] = useState('');
+  const [filterDate, setFilterDate] = useState('');
+  const [calendarMonth, setCalendarMonth] = useState(() => new Date().toISOString().slice(0, 7));
+  const [selectedCalendarDate, setSelectedCalendarDate] = useState(() => new Date().toISOString().slice(0, 10));
 
   // Forms states
   const [newRoom, setNewRoom] = useState({ nome: '', capacidade: '', recursos_ids: [] });
@@ -34,6 +38,14 @@ export default function AdminDashboard({ user }) {
     setTimeout(() => setToast({ msg: '', type: '' }), 4000);
   };
 
+  const fetchReservas = async (queryParams = '') => {
+    const res = await fetch(`${API_URL}/reservas/todas${queryParams}`, { headers: getAuthHeaders() });
+    const reservasData = await res.json();
+    if (!res.ok) throw new Error(reservasData.erro || 'Falha ao carregar reservas.');
+    reservasData.sort((a, b) => new Date(a.data) - new Date(b.data) || a.horario_inicio.localeCompare(b.horario_inicio));
+    setReservas(reservasData);
+  };
+
   const carregarDados = async () => {
     try {
       const resSalas = await fetch(`${API_URL}/salas`, { headers: getAuthHeaders() });
@@ -49,12 +61,10 @@ export default function AdminDashboard({ user }) {
       const resUsuarios = await fetch(`${API_URL}/usuarios`, { headers: getAuthHeaders() });
       setUsuarios(await resUsuarios.json());
 
-      const resReservas = await fetch(`${API_URL}/reservas/todas`, { headers: getAuthHeaders() });
-      const reservasData = await resReservas.json();
-      reservasData.sort((a, b) => new Date(b.data) - new Date(a.data));
-      setReservas(reservasData);
+      await fetchReservas();
     } catch (err) {
       console.error(err);
+      showToast('Erro ao carregar dados.', 'error');
     } finally {
       setLoading(false);
     }
@@ -309,6 +319,55 @@ export default function AdminDashboard({ user }) {
     return `${partes[2]}/${partes[1]}/${partes[0]}`;
   };
 
+  const buildQueryString = () => {
+    const params = new URLSearchParams();
+    if (filterSalaId) params.append('sala_id', filterSalaId);
+    if (filterDate) params.append('data', filterDate);
+    return params.toString() ? `?${params.toString()}` : '';
+  };
+
+  const handleApplyFilter = async () => {
+    try {
+      const queryString = buildQueryString();
+      await fetchReservas(queryString);
+      showToast('Filtro aplicado com sucesso.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const handleClearFilter = async () => {
+    setFilterSalaId('');
+    setFilterDate('');
+    try {
+      await fetchReservas();
+      showToast('Filtros removidos.');
+    } catch (err) {
+      showToast(err.message, 'error');
+    }
+  };
+
+  const getDaysInMonth = (year, month) => {
+    const days = [];
+    const date = new Date(year, month, 1);
+    while (date.getMonth() === month) {
+      days.push(new Date(date));
+      date.setDate(date.getDate() + 1);
+    }
+    return days;
+  };
+
+  const calendarYear = parseInt(calendarMonth.split('-')[0], 10);
+  const calendarMonthIndex = parseInt(calendarMonth.split('-')[1], 10) - 1;
+  const daysInMonth = getDaysInMonth(calendarYear, calendarMonthIndex);
+
+  const reservationsByDate = reservas.reduce((acc, reserva) => {
+    acc[reserva.data] = acc[reserva.data] ? [...acc[reserva.data], reserva] : [reserva];
+    return acc;
+  }, {});
+
+  const selectedDayReservations = selectedCalendarDate ? reservationsByDate[selectedCalendarDate] || [] : [];
+
   return (
     <>
       <div className="animate-enter">
@@ -472,6 +531,90 @@ export default function AdminDashboard({ user }) {
                       <div style={{ color: 'var(--text-muted)', fontSize: '0.85rem' }}>Capacidade: {s.capacidade}</div>
                     </div>
                     <button className="btn btn-secondary" style={{ padding: '6px 12px', fontSize: '0.85rem' }} onClick={() => openEditRoom(s)}>Editar</button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        <h2>Filtros e Calendário de Reservas</h2>
+        <div className="glass-panel" style={{ marginBottom: '1.5rem' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', alignItems: 'end' }}>
+            <div className="input-group" style={{ marginBottom: 0 }}>
+              <label>Filtrar por Sala</label>
+              <select value={filterSalaId} onChange={e => setFilterSalaId(e.target.value)}>
+                <option value="">Todas as Salas</option>
+                {salas.map(s => (
+                  <option key={s.id} value={s.id}>{s.nome}</option>
+                ))}
+              </select>
+            </div>
+            <div className="input-group" style={{ marginBottom: 0 }}>
+              <label>Filtrar por Data</label>
+              <input type="date" value={filterDate} onChange={e => setFilterDate(e.target.value)} />
+            </div>
+            <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
+              <button className="btn" type="button" onClick={handleApplyFilter}>Aplicar</button>
+              <button className="btn btn-secondary" type="button" onClick={handleClearFilter}>Limpar</button>
+            </div>
+          </div>
+        </div>
+
+        <div className="glass-panel" style={{ marginBottom: '2rem' }}>
+          <h3>📅 Calendário de Reservas</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr auto', gap: '1rem', alignItems: 'center', marginBottom: '1rem' }}>
+            <p style={{ margin: 0, color: 'var(--text-muted)' }}>Selecione um mês para visualizar a agenda de reservas.</p>
+            <input type="month" value={calendarMonth} onChange={e => setCalendarMonth(e.target.value)} style={{ maxWidth: '220px' }} />
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '8px', marginBottom: '1rem' }}>
+            {['Dom','Seg','Ter','Qua','Qui','Sex','Sáb'].map(d => (
+              <div key={d} style={{ fontWeight: 700, textAlign: 'center', color: 'var(--text-muted)' }}>{d}</div>
+            ))}
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: '8px' }}>
+            {new Array(new Date(calendarYear, calendarMonthIndex, 1).getDay()).fill(null).map((_, idx) => (
+              <div key={`blank-${idx}`} style={{ minHeight: '70px' }} />
+            ))}
+            {daysInMonth.map(day => {
+              const key = day.toISOString().slice(0, 10);
+              const count = reservationsByDate[key]?.length || 0;
+              const selected = key === selectedCalendarDate;
+              return (
+                <button key={key} type="button" onClick={() => setSelectedCalendarDate(key)} style={{
+                  minHeight: '70px',
+                  borderRadius: '10px',
+                  border: selected ? '2px solid var(--primary-color)' : '1px solid var(--surface-border)',
+                  background: selected ? 'rgba(59, 130, 246, 0.1)' : 'var(--bg-color)',
+                  color: 'inherit',
+                  padding: '10px',
+                  textAlign: 'left',
+                  cursor: 'pointer'
+                }}>
+                  <div style={{ fontWeight: 700 }}>{day.getDate()}</div>
+                  <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                    {count} reserva{count !== 1 ? 's' : ''}
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ marginTop: '1.5rem' }}>
+            <h4 style={{ margin: '0 0 0.75rem 0' }}>Reservas em {formatarData(selectedCalendarDate)}</h4>
+            {selectedDayReservations.length === 0 ? (
+              <p style={{ margin: 0, color: 'var(--text-muted)' }}>Nenhuma reserva nesta data.</p>
+            ) : (
+              <div style={{ display: 'grid', gap: '0.75rem' }}>
+                {selectedDayReservations.map(r => (
+                  <div key={r.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderRadius: '10px', background: 'var(--bg-color)', border: '1px solid var(--surface-border)' }}>
+                    <div>
+                      <strong>Reserva #{r.id}</strong>
+                      <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>{salasMap[r.sala_id] || `Sala #${r.sala_id}`}</div>
+                    </div>
+                    <div style={{ textAlign: 'right' }}>
+                      <div>{r.horario_inicio} às {r.horario_fim}</div>
+                      <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Usuário #{r.usuario_id}</div>
+                    </div>
                   </div>
                 ))}
               </div>

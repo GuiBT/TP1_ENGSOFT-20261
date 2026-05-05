@@ -361,7 +361,20 @@ def cancelar_reserva(id):
 @main_bp.route('/reservas/todas', methods=['GET'])
 @admin_required
 def listar_todas_reservas():
-    reservas = Reserva.query.all()
+    query = Reserva.query
+    sala_id = request.args.get('sala_id')
+    data_buscada = request.args.get('data')
+
+    if sala_id:
+        try:
+            query = query.filter_by(sala_id=int(sala_id))
+        except ValueError:
+            return jsonify({'erro': "O parâmetro 'sala_id' deve ser um número."}), 400
+
+    if data_buscada:
+        query = query.filter_by(data=data_buscada)
+
+    reservas = query.order_by(Reserva.data.asc(), Reserva.horario_inicio.asc()).all()
     return jsonify([{
         'id': r.id,
         'sala_id': r.sala_id,
