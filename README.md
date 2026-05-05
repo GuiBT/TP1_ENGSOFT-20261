@@ -11,23 +11,46 @@ O sistema visa gerenciar o agendamento de espaços comuns, permitindo que usuár
 
 ---
 
-## Tecnologias e Agentes de IA
-* **Frontend:** React (Vite) 
-* **Backend:** Flask (Python) 
-* **Banco de Dados:** SQLite 
-* **Agente de IA:** Gemini
+## Tecnologias
+* **Frontend:** React + Vite
+* **Backend:** Flask (Python)
+* **Banco de Dados:** SQLite
+* **Autenticação:** Token JWT / Authorization header
 
 ---
 
-## Histórias de Usuário
-1.  **Visualizar Salas:** Como usuário, quero visualizar a lista de todas as salas cadastradas para saber quais opções estão disponíveis.
-2.  **Consultar Detalhes:** Como usuário, quero ver a capacidade e os recursos de uma sala específica para decidir se ela atende à minha necessidade.
-3.  **Verificar Disponibilidade:** Como usuário, quero consultar os horários ocupados de uma sala em uma data específica para encontrar um horário livre.
-4.  **Realizar Reserva:** Como usuário, quero reservar uma sala informando a data e o intervalo de tempo desejado.
-5.  **Meus Agendamentos:** Como usuário, quero visualizar uma lista com as minhas reservas confirmadas para conferir meus compromissos.
-6.  **Cancelar Reserva:** Como usuário, quero poder cancelar uma reserva feita por mim caso eu não precise mais do espaço.
-7.  **Cadastrar Sala (Admin):** Como administrador, quero cadastrar novas salas no sistema informando nome, identificação e capacidade.
-8.  **Feedback de Conflito:** Como usuário, quero ser impedido de reservar uma sala em um horário que já possua outro agendamento ativo.
+## Funcionalidades Implementadas
+* Cadastro e login de usuários
+* Validação de autenticação e proteção de rotas via token
+* Cadastro e listagem de salas, recursos e usuários
+* Consulta de disponibilidade de sala por data
+* Criação, listagem e cancelamento de reservas
+* Painel administrativo com:
+  * cadastro e edição de salas
+  * cadastro e remoção de recursos
+  * cadastro de usuários
+  * promoção de usuários a admin
+  * despromoção de admins
+  * exclusão de usuários
+  * listagem de todas as reservas
+  * filtros de reserva por sala e data
+  * calendário de reservas por mês
+  * visualização do nome do responsável pela reserva
+
+---
+
+## Histórias de Usuário Atualizadas
+1.  **Visualizar Salas:** Como usuário, quero visualizar a lista de todas as salas cadastradas.
+2.  **Consultar Detalhes:** Como usuário, quero ver capacidade e recursos de uma sala específica.
+3.  **Verificar Disponibilidade:** Como usuário, quero consultar horários ocupados de uma sala para uma data específica.
+4.  **Realizar Reserva:** Como usuário, quero reservar uma sala informando data e horário.
+5.  **Meus Agendamentos:** Como usuário, quero visualizar minhas reservas confirmadas.
+6.  **Cancelar Reserva:** Como usuário, quero cancelar minha reserva quando não precisar mais.
+7.  **Cadastrar Sala (Admin):** Como administrador, quero cadastrar novas salas com nome, capacidade e recursos.
+8.  **Gerenciar Recursos (Admin):** Como administrador, quero cadastrar e remover recursos.
+9.  **Gerenciar Usuários (Admin):** Como administrador, quero criar, promover, despromover e excluir usuários.
+10. **Visualizar Reservas Globais (Admin):** Como administrador, quero ver todas as reservas, filtrar por sala/data e navegar por calendário.
+11. **Mostrar Nome do Responsável:** Como administrador, quero ver o nome do usuário responsável pela reserva em vez do ID.
 
 ---
 
