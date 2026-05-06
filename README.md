@@ -23,6 +23,7 @@ O sistema visa gerenciar o agendamento de espaços comuns, permitindo que usuár
 * **Backend:** Flask (Python)
 * **Banco de Dados:** SQLite
 * **Autenticação:** Token JWT / Authorization header
+* **IA:** Gemini & Raptor Mini
 
 ---
 
