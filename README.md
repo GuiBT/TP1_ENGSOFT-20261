@@ -5,25 +5,25 @@
 * **Pedro Henrique Egito Aguiar** - [Papel: Frontend] 
 
 ---
-
-## Papéis do Sistema
-* **admin**: gerencia usuários, salas, recursos, reservas e visualiza todas as reservas globais com calendário e filtros.
-* **room_admin**: gerencia salas e recursos, e visualiza todas as reservas de salas do mês com calendário igual ao do admin.
-* **comum**: pode consultar disponibilidade, fazer reservas e gerenciar suas próprias reservas.
-
----
-
 ## Objetivo do Sistema
 O sistema visa gerenciar o agendamento de espaços comuns, permitindo que usuários visualizem a disponibilidade e realizem reservas de forma autônoma. O foco é evitar conflitos de horários e facilitar a organização do uso dos espaços físicos da instituição. A aplicação será composta por uma API em Flask, interface Web em React e persistência de dados em SQLite.
 
----
 
+---
 ## Tecnologias
 * **Frontend:** React + Vite
 * **Backend:** Flask (Python)
 * **Banco de Dados:** SQLite
 * **Autenticação:** Token JWT / Authorization header
 * **IA:** Gemini & Raptor Mini
+
+
+---
+
+## Papéis do Sistema
+* **admin**: gerencia usuários, salas, recursos, reservas e visualiza todas as reservas globais com calendário e filtros.
+* **room_admin**: gerencia salas e recursos, e visualiza todas as reservas de salas do mês com calendário igual ao do admin.
+* **comum**: pode consultar disponibilidade, fazer reservas e gerenciar suas próprias reservas.
 
 ---
 
@@ -51,7 +51,7 @@ O sistema visa gerenciar o agendamento de espaços comuns, permitindo que usuár
 
 ---
 
-## Histórias de Usuário Atualizadas
+## Histórias de Usuário
 1.  **Visualizar Salas:** Como usuário, quero visualizar a lista de todas as salas cadastradas.
 2.  **Consultar Detalhes:** Como usuário, quero ver capacidade e recursos de uma sala específica.
 3.  **Verificar Disponibilidade:** Como usuário, quero consultar horários ocupados de uma sala para uma data específica.
